@@ -14,6 +14,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from datetime import datetime
 import requests
 from selenium.webdriver.support.ui import Select
+from ftplib import FTP
 
 def open_chrome_with_profile():
     chrome_options = webdriver.ChromeOptions()
@@ -261,12 +262,178 @@ def download_from_parts():
 
     driver.quit()
 
+def download_modeka():
+    chrome_options = Options()
+    service = Service(ChromeDriverManager().install())
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+    download_folder = os.path.join(desktop_path, "automation files")
+    if not os.path.exists(download_folder):
+        os.makedirs(download_folder)
+
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver.get("https://biketrade.pl/csv/")
+
+    try:
+        modeka_link = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//a[contains(@href, 'modeka.csv')]"))
+        )
+        file_url = modeka_link.get_attribute("href")
+        date_today = datetime.now().strftime("%d%m")
+        file_path = os.path.join(download_folder, f"{date_today} modeka.csv")
+
+        response = requests.get(file_url)
+        if response.status_code == 200:
+            with open(file_path, "wb") as file:
+                file.write(response.content)
+            print(f"File downloaded and saved as: {file_path}")
+        else:
+            print("Failed to download Modeka CSV file.")
+
+    except Exception as e:
+        print(f"Error downloading Modeka file: {e}")
+
+    driver.quit()
+
+def download_olek():
+    from datetime import datetime
+    import os
+    import requests
+
+    date_today = datetime.now().strftime("%d%m")
+    download_folder = os.path.join(os.path.expanduser("~"), "Desktop", "automation files")
+    if not os.path.exists(download_folder):
+        os.makedirs(download_folder)
+
+    url = "https://pim.olekmotocykle.com/xml?id=80&hash=100e47b1572543bd06e33cb9db1ba07436a08cda83bc32ffe7fe5daa4e7db588"
+    file_path = os.path.join(download_folder, f"{date_today} olek.xml")
+
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(file_path, "wb") as file:
+            file.write(response.content)
+        print(f"File downloaded and saved as: {file_path}")
+    else:
+        print("Failed to download Olek file.")
+
+
+def download_b2bike():
+    ftp_url = "spidipolska.home.pl"
+    ftp_user = "stany@b2bike.eu"
+    ftp_pass = "B2bike123"
+    remote_filepath = "/stany.xlsx"
+
+    date_today = datetime.now().strftime("%d%m")
+    download_folder = os.path.join(os.path.expanduser("~"), "Desktop", "automation files")
+    if not os.path.exists(download_folder):
+        os.makedirs(download_folder)
+
+    local_filepath = os.path.join(download_folder, f"{date_today} b2bike.xlsx")
+
+    ftp = FTP(ftp_url)
+    ftp.login(user=ftp_user, passwd=ftp_pass)
+
+    with open(local_filepath, "wb") as local_file:
+        ftp.retrbinary(f"RETR {remote_filepath}", local_file.write)
+
+    ftp.quit()
+
+
+def download_wilamt():
+    url = "https://www.wmmotor.pl/hurtownia/pliki_download.php?login%3Dinfo@defender.net.pl%26key%3D8c645d4326caa74859ba22bc8338b6bb%26type%3Dpricelist%26lang%3Dpl%26curr%3Dpln"
+    date_today = datetime.now().strftime("%d%m")
+    download_folder = os.path.join(os.path.expanduser("~"), "Desktop", "automation files")
+    if not os.path.exists(download_folder):
+        os.makedirs(download_folder)
+
+    local_filepath = os.path.join(download_folder, f"{date_today} wilmat.xlsx")
+
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(local_filepath, "wb") as file:
+            file.write(response.content)
+        print(f"File {local_filepath} downloaded successfully.")
+    else:
+        print("Failed to download the wilmat file.")
+
+
+def download_ridkp():
+    url = "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=12"
+
+    date_today = datetime.now().strftime("%d%m")
+    download_folder = os.path.join(os.path.expanduser("~"), "Desktop", "automation files")
+    if not os.path.exists(download_folder):
+        os.makedirs(download_folder)
+
+    local_filepath = os.path.join(download_folder, f"{date_today} ridkp.xml")
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            with open(local_filepath, "wb") as file:
+                file.write(response.content)
+            print(f"File {local_filepath} downloaded successfully.")
+        else:
+            print(f"Failed to download the ridkp file. Status Code: {response.status_code}")
+            print(f"Response content: {response.text}")
+    except Exception as e:
+        print(f"Error downloading the ridkp file: {e}")
+
+
+def download_riders():
+    urls = [
+        "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=16",
+        "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=9",
+        "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=19",
+        "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=22",
+        "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=25",
+        "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=62",
+        "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=70",
+        "https://api.rider.com.pl/web-service.php?key=ZSAEy9IbziyejC9wXLJGtgAX6Ok7QlSY&grupa=7"
+    ]
+
+    date_today = datetime.now().strftime("%d%m")
+    download_folder = os.path.join(os.path.expanduser("~"), "Desktop", "automation files")
+    if not os.path.exists(download_folder):
+        os.makedirs(download_folder)
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
+    }
+
+    for index, url in enumerate(urls, start=1):
+        local_filepath = os.path.join(download_folder, f"{date_today} rider {index}.xml")
+
+        try:
+            response = requests.get(url, headers=headers)
+
+            if response.status_code == 200:
+                with open(local_filepath, "wb") as file:
+                    file.write(response.content)
+                print(f"File {local_filepath} downloaded successfully.")
+            else:
+                print(f"Failed to download from {url}. Status Code: {response.status_code}")
+                print(f"Response content: {response.text}")
+        except Exception as e:
+            print(f"Error downloading from {url}: {e}")
+
 def main():
     download_from_parts()
     shoei()
     download_givi_file()
     login_and_download()
 
+    download_modeka()
+    download_olek()
+    download_b2bike()
+
+    download_wilamt()
+    download_ridkp()
+    download_riders()
 
 if __name__ == "__main__":
     main()
