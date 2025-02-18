@@ -203,25 +203,20 @@ def download_from_parts():
             EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'btn btn-primary btn-lg btn-icon')]"))
         )
 
-        # Scroll the button into view and click it using JavaScript
         driver.execute_script("arguments[0].scrollIntoView(true);", login_button)
-        time.sleep(1)  # Let the page adjust
-        driver.execute_script("arguments[0].click();", login_button)  # Use JavaScript to click
+        time.sleep(1)
+        driver.execute_script("arguments[0].click();", login_button)
         time.sleep(3)
 
-        # Wait for the Price Files / Special Files element and click it
         try:
             link_element = WebDriverWait(driver, 2).until(
                 EC.presence_of_element_located((By.XPATH, "//a[contains(@href, '/en/b2b/pricefiles')]"))
             )
 
-            # Click using JavaScript
             driver.execute_script("arguments[0].click();", link_element)
         except Exception as e:
             print(f"Error XD: {e}")
 
-
-        # Search for file and download
         search_box = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((By.XPATH, "//input[@type='search']"))
         )
