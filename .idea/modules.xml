@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Stock-Status-Automatization(0.0.1).iml" filepath="$PROJECT_DIR$/.idea/Stock-Status-Automatization(0.0.1).iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/defender.iml" filepath="$PROJECT_DIR$/.idea/defender.iml" />
     </modules>
   </component>
 </project>
