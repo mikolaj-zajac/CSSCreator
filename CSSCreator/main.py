@@ -2,11 +2,11 @@ import json
 import os
 import random
 import shutil
-from PyQt6.QtCore import Qt, QStandardPaths, QSize
+from PyQt6.QtCore import Qt, QStandardPaths, QSize, QTimer, QPropertyAnimation, QRect
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QClipboard, QIcon
 from PyQt6.QtWidgets import (
     QApplication, QLabel, QMainWindow, QVBoxLayout, QPushButton, QScrollArea,
-    QWidget, QHBoxLayout, QTextEdit, QSplitter, QStackedWidget, QComboBox, QMessageBox, QFileDialog
+    QWidget, QHBoxLayout, QTextEdit, QSplitter, QStackedWidget, QComboBox, QMessageBox, QFileDialog, QLineEdit
 )
 
 def resource_path(relative_path):
@@ -24,6 +24,9 @@ class HtmlEditor(QMainWindow):
         super().__init__()
         self.setWindowTitle("Edytor opisów długich Moto-Toura 2025")
         self.setGeometry(100, 100, 1000, 600)
+        
+        icon_path = resource_path("ikona.ico")
+        self.setWindowIcon(QIcon(icon_path))
 
         self.light_mode = False
         self.section_direction = True
@@ -147,11 +150,79 @@ class HtmlEditor(QMainWindow):
 
         self.add_section_button = QPushButton("+ Dodaj Sekcję")
         self.add_section_button.clicked.connect(self.add_section)
-        self.left_layout.addWidget(self.add_section_button)
 
         self.add_header_button = QPushButton("+ Dodaj Nagłówek")
         self.add_header_button.clicked.connect(self.add_header)
-        self.left_layout.addWidget(self.add_header_button)
+
+        self.add_ul_button = QPushButton("+ Dodaj Listę")
+        self.add_ul_button.setStyleSheet(
+            "background-color: #870501; color: white; padding: 10px; border-radius: 6px; font-size: 14px;"
+        )
+        self.add_ul_button.clicked.connect(lambda: self.add_list("ul"))
+
+        self.add_youtube_button = QPushButton("+ Dodaj Film YouTube")
+        self.add_youtube_button.setStyleSheet(
+            "background-color: #d38235; color: white; padding: 10px; border-radius: 6px; font-size: 14px;"
+        )
+        self.add_youtube_button.clicked.connect(self.add_youtube_video)
+
+        self.dark_mode_toggle_button = QPushButton("")
+        self.dark_mode_toggle_button.setFixedSize(30, 90)
+        self.dark_mode_toggle_button.clicked.connect(self.toggle_light_mode)
+        if self.light_mode:
+            self.dark_mode_toggle_button.setStyleSheet("""
+                                QPushButton {
+                                    background-color: #555555;
+                                    color: white;
+                                    border: none;
+                                    border-radius: 15px;
+    
+                                    font-size: 20px;
+                                }
+                                QPushButton:hover {
+                                    background-color: #444444;
+                                }
+                            """)
+            self.dark_mode_toggle_button.setText("🌙")
+        else:
+            self.dark_mode_toggle_button.setStyleSheet("""
+                                QPushButton {
+                                    background-color: #cccccc;
+                                    color: black;
+                                    border: none;
+                                    border-radius: 15px;
+
+                                    font-size: 20px;
+                                }
+                                QPushButton:hover {
+                                    background-color: #e6e6e6;
+                                }
+                            """)
+            self.dark_mode_toggle_button.setText("☀️")
+
+        self.is_dark_mode = False
+
+        self.slider_animation = QPropertyAnimation(self.dark_mode_toggle_button, b"geometry")
+        self.slider_animation.setDuration(300)
+
+        box = QHBoxLayout()
+
+        zero = QVBoxLayout()
+        zero.addWidget(self.dark_mode_toggle_button)
+
+        first = QVBoxLayout()
+        first.addWidget(self.add_section_button)
+        first.addWidget(self.add_header_button)
+
+        second = QVBoxLayout()
+        second.addWidget(self.add_ul_button)
+        second.addWidget(self.add_youtube_button)
+
+        box.addLayout(zero)
+        box.addLayout(first)
+        box.addLayout(second)
+
+        self.left_layout.addLayout(box)
 
         self.splitter.addWidget(self.left_widget)
 
@@ -165,6 +236,7 @@ class HtmlEditor(QMainWindow):
 
         self.copy_html_button = QPushButton("Skopiuj kod HTML")
         self.right_layout.addWidget(self.copy_html_button)
+        self.copy_html_button.clicked.connect(self.copy_html)
 
         self.splitter.addWidget(self.right_widget)
         self.splitter.setSizes([700, 300])
@@ -177,15 +249,52 @@ class HtmlEditor(QMainWindow):
     def toggle_light_mode(self):
         self.light_mode = not self.light_mode
         self.apply_styles()
+        self.save_settings()
+
+        if self.light_mode:
+            self.dark_mode_toggle_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #555555;
+                        color: white;
+                        border: none;
+                        border-radius: 15px;
+                        
+                        font-size: 20px;
+                    }
+                    QPushButton:hover {
+                        background-color: #444444;
+                    }
+                """)
+            self.dark_mode_toggle_button.setText("🌙")
+            self.slider_animation.setStartValue(self.dark_mode_toggle_button.geometry())
+
+        else:
+            self.dark_mode_toggle_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #cccccc;
+                        color: black;
+                        border: none;
+                        border-radius: 15px;
+                        
+                        font-size: 20px;
+                    }
+                    QPushButton:hover {
+                        background-color: #e6e6e6;
+                    }
+                """)
+            self.dark_mode_toggle_button.setText("☀️")
+            self.slider_animation.setStartValue(self.dark_mode_toggle_button.geometry())
+
+        self.slider_animation.start()
 
     def apply_styles(self):
-        # Global app styles
+        # Apply global styles for the main window
         if self.light_mode:
             self.setStyleSheet("background-color: white; color: black;")
         else:
             self.setStyleSheet("background-color: #2b2b2b; color: white;")
 
-        # Start button style
+        # Update individual buttons
         if hasattr(self, 'start_button'):
             self.start_button.setStyleSheet("""
                 background-color: #6395ED; 
@@ -199,7 +308,6 @@ class HtmlEditor(QMainWindow):
                 border-radius: 5px;
             """)
 
-        # Add section button style
         if hasattr(self, 'add_section_button'):
             self.add_section_button.setStyleSheet("""
                 background-color: #198754; 
@@ -215,7 +323,6 @@ class HtmlEditor(QMainWindow):
                 font-size: 14px;
             """)
 
-        # Add header button style
         if hasattr(self, 'add_header_button'):
             self.add_header_button.setStyleSheet("""
                 background-color: #6395ED; 
@@ -231,21 +338,36 @@ class HtmlEditor(QMainWindow):
                 font-size: 14px;
             """)
 
-        # HTML editor style
-        if hasattr(self, 'html_edit'):
-            self.html_edit.setStyleSheet("""
-                background-color: #e9ecef; 
+        if hasattr(self, 'add_ul_button'):
+            self.add_ul_button.setStyleSheet("""
+                background-color: orange; 
                 color: black; 
-                border-radius: 5px; 
-                padding: 5px;
+                padding: 10px; 
+                border-radius: 6px; 
+                font-size: 14px;
             """ if self.light_mode else """
-                background-color: #222; 
+                background-color: #e67c00; 
                 color: white; 
-                border-radius: 5px; 
-                padding: 5px;
+                padding: 10px; 
+                border-radius: 6px; 
+                font-size: 14px;
             """)
 
-        # Copy HTML button style
+        if hasattr(self, 'add_youtube_button'):
+            self.add_youtube_button.setStyleSheet("""
+                background-color: red; 
+                color: black; 
+                padding: 10px; 
+                border-radius: 6px; 
+                font-size: 14px;
+            """ if self.light_mode else """
+                background-color: #d32f2f; 
+                color: white; 
+                padding: 10px; 
+                border-radius: 6px; 
+                font-size: 14px;
+            """)
+
         if hasattr(self, 'copy_html_button'):
             self.copy_html_button.setStyleSheet("""
                 background-color: #6395ED; 
@@ -261,15 +383,35 @@ class HtmlEditor(QMainWindow):
                 font-size: 14px;
             """)
 
-        # Update dynamic sections and buttons
+        # Update all sections
         self.update_buttons_theme()
+
+    def copy_html(self):
+        html_content = self.html_edit.toPlainText()
+        clipboard = QApplication.clipboard()
+        clipboard.setText(html_content, mode=QClipboard.Mode.Clipboard)
+
+        # Change the style and text of the button
+        self.copy_html_button.setStyleSheet("background-color: green; color: white; padding: 10px; border-radius: 5px;")
+        self.copy_html_button.setText("Skopiowano!")
+
+        # Reset the button after a delay
+        QTimer.singleShot(2000, self.reset_copy_button)
+
+    def reset_copy_button(self):
+        # Reset button style and text to the default
+        self.copy_html_button.setStyleSheet(
+            "background-color: #6395ED; color: white; padding: 10px; border-radius: 5px;"
+        )
+        self.copy_html_button.setText("Skopiuj kod HTML")
 
     def update_buttons_theme(self):
         for section in self.sections:
             if section[1] == "section":
-                _, _, _, text_edit, buttons_widget, _ = section
+                # Unpack section layout
+                _, _, label, text_edit, buttons_widget, _ = section
 
-                # Update TextEdit style for sections
+                # Update styles for QTextEdit
                 text_edit.setStyleSheet("""
                     background-color: #e9ecef; 
                     color: black; 
@@ -282,19 +424,243 @@ class HtmlEditor(QMainWindow):
                     padding: 5px;
                 """)
 
-                # Update QPushButtons inside each section
+                # Update draggable label color
+                label.setStyleSheet("""
+                    background-color: #f0f0f0; 
+                    border: 1px solid #ccc;
+                """ if self.light_mode else """
+                    background-color: #333; 
+                    border: 1px solid #444;
+                """)
+
+                # Update styles for buttons inside section
                 for button in buttons_widget.findChildren(QPushButton):
-                    button.setStyleSheet("""
-                        background-color: #FFC107; 
+                    if button.text() == "Usuń Sekcję":
+                        button.setStyleSheet("""
+                            background-color: #FF4C4C; 
+                            color: black; 
+                            padding: 5px; 
+                            border-radius: 5px;
+                        """ if self.light_mode else """
+                            background-color: #FF4C4C; 
+                            color: white; 
+                            padding: 5px; 
+                            border-radius: 5px;
+                        """)
+                    elif button.text() == "Zamień Kolejność":
+                        button.setStyleSheet("""
+                            background-color: #FFC107; 
+                            color: black; 
+                            padding: 5px; 
+                            border-radius: 5px;
+                        """ if self.light_mode else """
+                            background-color: #FFC107; 
+                            color: black; 
+                            padding: 5px; 
+                            border-radius: 5px;
+                        """)
+                    elif button.text() == "↑":
+                        button.setStyleSheet("""
+                            background-color: #6395ED; 
+                            color: black; 
+                            font-weight: bold;
+                            padding: 5px; 
+                            border-radius: 5px;
+                        """ if self.light_mode else """
+                            background-color: #4567BB; 
+                            color: white; 
+                            font-weight: bold;
+                            padding: 5px; 
+                            border-radius: 5px;
+                        """)
+                    elif button.text() == "↓":
+                        button.setStyleSheet("""
+                            background-color: #6395ED; 
+                            color: black; 
+                            font-weight: bold;
+                            padding: 5px; 
+                            border-radius: 5px;
+                        """ if self.light_mode else """
+                            background-color: #4567BB; 
+                            color: white; 
+                            font-weight: bold;
+                            padding: 5px; 
+                            border-radius: 5px;
+                        """)
+
+            elif section[1] == "header":
+                combobox, text_edit = section[2], section[3]
+
+                # Header text field style
+                text_edit.setStyleSheet("""
+                    background-color: #e9ecef; 
+                    color: black; 
+                    border-radius: 5px; 
+                    padding: 5px;
+                """ if self.light_mode else """
+                    background-color: #222; 
+                    color: white; 
+                    border-radius: 5px; 
+                    padding: 5px;
+                """)
+
+                # Combobox style (header dropdown like H1, H2, etc.)
+                combobox.setStyleSheet("""
+                                    QComboBox {
+                                        background-color: #e9ecef; 
+                                        color: black; 
+
+                                        padding: 10px; 
+                                        font-size: 14px;
+                                    }
+                                    QComboBox QAbstractItemView {
+                                        background-color: white; 
+                                        color: black; 
+                                        selection-background-color: #f0f0f0; 
+                                        selection-color: black;
+                                    }
+
+                                """ if self.light_mode else """
+                                    QComboBox {
+                                        background-color: #222; 
+                                        color: white; 
+
+                                        padding: 10px; 
+                                        font-size: 14px;
+                                    }
+                                    QComboBox QAbstractItemView {
+                                        background-color: #2b2b2b; 
+                                        color: white; 
+                                        selection-background-color: #444; 
+                                        selection-color: white;
+                                    }
+
+                                """)
+
+            elif section[1] == "youtube":
+                video_edit, thumbnail_url_edit, alt_text_edit = section[2:]
+
+                # YouTube video fields
+                for field in [video_edit, thumbnail_url_edit, alt_text_edit]:
+                    field.setStyleSheet("""
+                        background-color: #e9ecef; 
                         color: black; 
-                        padding: 10px; 
+                        padding: 5px; 
                         border-radius: 5px;
                     """ if self.light_mode else """
-                        background-color: #FF4C4C; 
+                        background-color: #222; 
                         color: white; 
-                        padding: 10px; 
+                        padding: 5px; 
                         border-radius: 5px;
                     """)
+
+            elif section[1] == "list":
+                combobox, text_edit = section[2], section[3]
+
+                # List text edit
+                text_edit.setStyleSheet("""
+                    background-color: #e9ecef; 
+                    color: black; 
+                    border-radius: 5px; 
+                    padding: 5px;
+                """ if self.light_mode else """
+                    background-color: #222; 
+                    color: white; 
+                    border-radius: 5px; 
+                    padding: 5px;
+                """)
+
+                # Combobox (dropdown list style)
+                combobox.setStyleSheet("""
+                    QComboBox {
+                        background-color: #e9ecef; 
+                        color: black; 
+                        
+                        padding: 10px; 
+                        font-size: 14px;
+                    }
+                    QComboBox QAbstractItemView {
+                        background-color: white; 
+                        color: black; 
+                        selection-background-color: #f0f0f0; 
+                        selection-color: black;
+                    }
+
+                """ if self.light_mode else """
+                    QComboBox {
+                        background-color: #222; 
+                        color: white; 
+                        
+                        padding: 10px; 
+                        font-size: 14px;
+                    }
+                    QComboBox QAbstractItemView {
+                        background-color: #2b2b2b; 
+                        color: white; 
+                        selection-background-color: #444; 
+                        selection-color: white;
+                    }
+
+                """)
+
+
+            elif section[1] == "youtube":
+                video_id_edit, thumbnail_url_edit, alt_text_edit = section[2], section[3], section[4]
+
+                video_id_edit.setStyleSheet("""
+                    background-color: #e9ecef; 
+                    color: black; 
+                    padding: 5px;
+                """ if self.light_mode else """
+                    background-color: #222; 
+                    color: white; 
+                    padding: 5px;
+                """)
+
+                thumbnail_url_edit.setStyleSheet("""
+                    background-color: #e9ecef; 
+                    color: black; 
+                    padding: 5px;
+                """ if self.light_mode else """
+                    background-color: #222; 
+                    color: white; 
+                    padding: 5px;
+                """)
+
+                alt_text_edit.setStyleSheet("""
+                    background-color: #e9ecef; 
+                    color: black; 
+                    padding: 5px;
+                """ if self.light_mode else """
+                    background-color: #222; 
+                    color: white; 
+                    padding: 5px;
+                """)
+
+            elif section[1] == "list":
+                combobox, text_edit = section[2], section[3]
+
+                text_edit.setStyleSheet("""
+                    background-color: #e9ecef; 
+                    color: black; 
+                    border-radius: 5px; 
+                    padding: 5px;
+                """ if self.light_mode else """
+                    background-color: #222; 
+                    color: white; 
+                    border-radius: 5px; 
+                    padding: 5px;
+                """)
+
+                combobox.setStyleSheet("""
+                    background-color: #f0f0f0; 
+                    color: black; 
+                    border: 1px solid #ccc;
+                """ if self.light_mode else """
+                    background-color: #444; 
+                    color: white; 
+                    border: 1px solid #666;
+                """)
 
     def swap_section_direction(self, section_layout):
         for i, section in enumerate(self.sections):
@@ -332,29 +698,49 @@ class HtmlEditor(QMainWindow):
         text_edit = QTextEdit()
         text_edit.setPlaceholderText("Wpisz treść paragrafu...")
         text_edit.textChanged.connect(self.update_html)
-        text_edit.setStyleSheet(
-            "background-color: #e9ecef; color: black; border-radius: 5px; padding: 5px;" if self.light_mode else
-            "background-color: #222; color: white; border-radius: 5px; padding: 5px;"
-        )
+        text_edit.setStyleSheet("""
+            background-color: #e9ecef; color: black; border-radius: 5px; padding: 5px;
+        """ if self.light_mode else """
+            background-color: #222; color: white; border-radius: 5px; padding: 5px;
+        """)
 
-        delete_button = QPushButton("Usuń")
-        delete_button.setStyleSheet(
-            "background-color: #FF4C4C; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
-            "background-color: #FF4C4C; color: white; padding: 5px; border-radius: 5px;"
-        )
+        delete_button = QPushButton("Usuń Sekcję")
+        delete_button.setStyleSheet("""
+            background-color: #FF4C4C; color: black; padding: 5px; border-radius: 5px;
+        """ if self.light_mode else """
+            background-color: #FF4C4C; color: white; padding: 5px; border-radius: 5px;
+        """)
         delete_button.clicked.connect(lambda: self.delete_section(section_layout))
 
-        swap_button = QPushButton("Zamień")
-        swap_button.setStyleSheet(
-            "background-color: #FFC107; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
-            "background-color: #FFC107; color: black; padding: 5px; border-radius: 5px;"
-        )
+        swap_button = QPushButton("Zamień Kolejność")
+        swap_button.setStyleSheet("""
+            background-color: #FFC107; color: black; padding: 5px; border-radius: 5px;
+        """ if self.light_mode else """
+            background-color: #FFC107; color: black; padding: 5px; border-radius: 5px;
+        """)
         swap_button.clicked.connect(lambda: self.swap_section_direction(section_layout))
+
+        move_up_button = QPushButton("↑")
+        move_up_button.setStyleSheet("""
+            background-color: #6395ED; color: black; padding: 5px; border-radius: 5px; font-weight: bold;
+        """ if self.light_mode else """
+            background-color: #4567BB; color: white; padding: 5px; border-radius: 5px; font-weight: bold;
+        """)
+        move_up_button.clicked.connect(lambda: self.move_section(section_layout, -1))
+
+        move_down_button = QPushButton("↓")
+        move_down_button.setStyleSheet("""
+            background-color: #6395ED; color: black; padding: 5px; border-radius: 5px; font-weight: bold;
+        """ if self.light_mode else """
+            background-color: #4567BB; color: white; padding: 5px; border-radius: 5px; font-weight: bold;
+        """)
+        move_down_button.clicked.connect(lambda: self.move_section(section_layout, 1))
 
         buttons_layout = QVBoxLayout()
         buttons_layout.addWidget(swap_button)
         buttons_layout.addWidget(delete_button)
-
+        buttons_layout.addWidget(move_up_button)
+        buttons_layout.addWidget(move_down_button)
         buttons_widget = QWidget()
         buttons_widget.setLayout(buttons_layout)
 
@@ -394,28 +780,198 @@ class HtmlEditor(QMainWindow):
         header_text_edit.textChanged.connect(self.update_html)
         header_combobox.currentTextChanged.connect(self.update_html)
 
-        delete_button = QPushButton("Usuń")
+        delete_button = QPushButton("Usuń Sekcję")
         delete_button.setStyleSheet(
             "background-color: #FF4C4C; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
             "background-color: #FF4C4C; color: white; padding: 5px; border-radius: 5px;"
         )
         delete_button.clicked.connect(lambda: self.delete_section(header_layout))
 
+        move_up_button = QPushButton("↑")
+        move_up_button.setStyleSheet(
+            "background-color: #6395ED; color: black; padding: 5px; border-radius: 5px; font-weight: bold;" if self.light_mode else
+            "background-color: #4567BB; color: white; padding: 5px; border-radius: 5px; font-weight: bold;"
+        )
+        move_up_button.clicked.connect(lambda: self.move_section(header_layout, -1))  # Move up
+
+        move_down_button = QPushButton("↓")
+        move_down_button.setStyleSheet(
+            "background-color: #6395ED; color: black; padding: 5px; border-radius: 5px; font-weight: bold;" if self.light_mode else
+            "background-color: #4567BB; color: white; padding: 5px; border-radius: 5px; font-weight: bold;"
+        )
+        move_down_button.clicked.connect(lambda: self.move_section(header_layout, 1))  # Move down
+
+        buttons_layout = QVBoxLayout()
+        buttons_layout.addWidget(move_up_button)
+        buttons_layout.addWidget(move_down_button)
+        buttons_layout.addWidget(delete_button)
+
+        buttons_widget = QWidget()
+        buttons_widget.setLayout(buttons_layout)
+
         header_layout.addWidget(header_combobox)
         header_layout.addWidget(header_text_edit)
-        header_layout.addWidget(delete_button)
+        header_layout.addWidget(buttons_widget)
         self.scroll_layout.addLayout(header_layout)
 
         self.sections.append((header_layout, "header", header_combobox, header_text_edit))
         self.update_html()
+
+    def add_youtube_video(self):
+        youtube_layout = QHBoxLayout()
+
+        video_id_edit = QLineEdit()
+        video_id_edit.setPlaceholderText("Wpisz URL filmu")
+        video_id_edit.setStyleSheet(
+            "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
+            "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
+        )
+
+        thumbnail_url_edit = QLineEdit()
+        thumbnail_url_edit.setPlaceholderText("Wpisz URL miniaturki (maxresdefault)")
+        thumbnail_url_edit.setStyleSheet(
+            "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
+            "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
+        )
+
+        alt_text_edit = QLineEdit()
+        alt_text_edit.setPlaceholderText("Wpisz tekst zastępczy")
+        alt_text_edit.setStyleSheet(
+            "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
+            "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
+        )
+
+        delete_button = QPushButton("Usuń Sekcję")
+        delete_button.setStyleSheet(
+            "background-color: #FF4C4C; color: white; padding: 5px; border-radius: 5px;" if self.light_mode else
+            "background-color: #FF4C4C; color: white; padding: 5px; border-radius: 5px;"
+        )
+
+        delete_button.clicked.connect(lambda: self.delete_section(youtube_layout))
+
+        move_up_button = QPushButton("↑")
+        move_up_button.setStyleSheet(
+            "background-color: #6395ED; color: black; padding: 5px; border-radius: 5px; font-weight: bold;" if self.light_mode else
+            "background-color: #4567BB; color: white; padding: 5px; border-radius: 5px; font-weight: bold;"
+        )
+        move_up_button.clicked.connect(lambda: self.move_section(youtube_layout, -1))  # Move up
+
+        move_down_button = QPushButton("↓")
+        move_down_button.setStyleSheet(
+            "background-color: #6395ED; color: black; padding: 5px; border-radius: 5px; font-weight: bold;" if self.light_mode else
+            "background-color: #4567BB; color: white; padding: 5px; border-radius: 5px; font-weight: bold;"
+        )
+        move_down_button.clicked.connect(lambda: self.move_section(youtube_layout, 1))  # Move down
+
+        youtube_layout.addWidget(video_id_edit)
+        youtube_layout.addWidget(thumbnail_url_edit)
+        youtube_layout.addWidget(alt_text_edit)
+
+        buttons_layout = QVBoxLayout()
+        buttons_layout.addWidget(move_up_button)
+        buttons_layout.addWidget(move_down_button)
+        buttons_layout.addWidget(delete_button)
+
+        buttons_widget = QWidget()
+        buttons_widget.setLayout(buttons_layout)
+        youtube_layout.addWidget(buttons_widget)
+
+        video_id_edit.textChanged.connect(self.update_html)
+        thumbnail_url_edit.textChanged.connect(self.update_html)
+        alt_text_edit.textChanged.connect(self.update_html)
+
+        self.scroll_layout.addLayout(youtube_layout)
+        self.sections.append((youtube_layout, "youtube", video_id_edit, thumbnail_url_edit, alt_text_edit))
+
+        self.update_html()
+
+    def add_list(self, list_type):
+        list_layout = QHBoxLayout()
+
+        list_combobox = QComboBox()
+        list_combobox.addItems(["ul", "ol"])  # Allow switching between UL and OL
+        list_combobox.setCurrentText(list_type)
+        list_combobox.setStyleSheet(
+            "background-color: #e9ecef; color: black; padding: 10px; font-size: 14px;" if self.light_mode else
+            "background-color: #222; color: white; padding: 10px; font-size: 14px;"
+        )
+
+        list_combobox.currentTextChanged.connect(self.update_html)
+
+        list_text_edit = QTextEdit()
+        list_text_edit.setPlaceholderText("Wpisz elementy listy, każdy w nowej linii...")
+        list_text_edit.textChanged.connect(lambda: self.update_html())  # Auto-update HTML on item addition
+        list_text_edit.setStyleSheet(
+            "background-color: #e9ecef; color: black; border-radius: 5px; padding: 5px;" if self.light_mode else
+            "background-color: #222; color: white; border-radius: 5px; padding: 5px;"
+        )
+
+        delete_button = QPushButton("Usuń Sekcję")
+        delete_button.setStyleSheet(
+            "background-color: #FF4C4C; color: black; padding: 5px; border-radius: 5px; " if self.light_mode else
+            "background-color: #FF4C4C; color: white; padding: 5px; border-radius: 5px;"
+        )
+        delete_button.clicked.connect(lambda: self.delete_section(list_layout))
+
+        move_up_button = QPushButton("↑")
+        move_up_button.setStyleSheet(
+            "background-color: #6395ED; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
+            "background-color: #4567BB; color: white; padding: 5px; border-radius: 5px;"
+        )
+        move_up_button.clicked.connect(lambda: self.move_section(list_layout, -1))  # Move up
+
+        move_down_button = QPushButton("↓")
+        move_down_button.setStyleSheet(
+            "background-color: #6395ED; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
+            "background-color: #4567BB; color: white; padding: 5px; border-radius: 5px;"
+        )
+        move_down_button.clicked.connect(lambda: self.move_section(list_layout, 1))  # Move down
+
+        buttons_layout = QVBoxLayout()
+        buttons_layout.addWidget(move_up_button)
+        buttons_layout.addWidget(move_down_button)
+        buttons_layout.addWidget(delete_button)
+        buttons_widget = QWidget()
+        buttons_widget.setLayout(buttons_layout)
+
+        list_layout.addWidget(list_combobox)
+        list_layout.addWidget(list_text_edit)
+        list_layout.addWidget(buttons_widget)
+
+        self.scroll_layout.addLayout(list_layout)
+
+        # Save section info for tracking
+        self.sections.append((list_layout, "list", list_combobox, list_text_edit))
+        self.update_html()
+
+    def move_section(self, section_layout, direction):
+        current_index = None
+        for i, section in enumerate(self.sections):
+            if section[0] == section_layout:
+                current_index = i
+                break
+
+        if current_index is None:
+            return
+
+        new_index = current_index + direction
+
+        if 0 <= new_index < len(self.sections):
+            self.sections.insert(new_index, self.sections.pop(current_index))
+
+            layout_item = self.scroll_layout.takeAt(current_index)
+            widget_to_move = layout_item.layout()
+            self.scroll_layout.insertLayout(new_index, widget_to_move)
+
+            self.update_html()
 
     def delete_section(self, section_layout):
         for section in self.sections:
             if section[0] == section_layout:
                 if section[1] == "section":
                     image_label = section[2]
-                    if image_label.image_path and os.path.isfile(image_label.image_path):
-                        os.remove(image_label.image_path)
+                    # if image_label.image_path and os.path.isfile(image_label.image_path):
+                    #     os.remove(image_label.image_path)
                 self.sections.remove(section)
                 break
 
@@ -428,32 +984,26 @@ class HtmlEditor(QMainWindow):
         self.update_html()
 
     def update_html(self):
-        html_content = """<html>
-        <head>
-            <style>
-                .longdescription__template { width: 100%; }
-                .row { display: flex; align-items: center; margin-bottom: 20px; }
-                .longdescription__template__col.--photo img { max-width: 100%; height: auto; }
-                .longdescription__template__col.--text { padding: 10px; }
-            </style>
-        </head>
-        <body>
-            <div class="longdescription__template">"""
+        html_content = """<div class="longdescription__template">"""
 
         for section in self.sections:
             if section[1] == "section":
                 image_label, text_edit, direction = section[2], section[3], section[5]
 
                 text_content = text_edit.toPlainText()
-                text_html = f"""<div class="longdescription__template__col --text">
-                    <p>{text_content}</p>
-                </div>"""
+                text_html = f"""
+                    <div class="longdescription__template__col --text">
+                        <p>{text_content}</p>
+                    </div>
+                """
 
                 if image_label.image_path and os.path.isfile(image_label.image_path):
                     file_name = os.path.basename(image_label.image_path)
-                    image_html = f"""<div class="longdescription__template__col --photo">
-                        <img src="/data/include/cms/img-longdescription/{file_name}" alt="Obraz">
-                    </div>"""
+                    image_html = f"""
+                        <div class="longdescription__template__col --photo">
+                            <img src="/data/include/cms/img-longdescription/{file_name}" alt="Obraz">
+                        </div>
+                    """
                 else:
                     image_html = ""
 
@@ -462,25 +1012,75 @@ class HtmlEditor(QMainWindow):
                         <div class="row">
                             {image_html}
                             {text_html}
-                        </div>"""
+                        </div>
+                    """
                 else:
                     html_content += f"""
                         <div class="row">
                             {text_html}
                             {image_html}
-                        </div>"""
+                        </div>
+                    """
 
             elif section[1] == "header":
                 header_combobox, header_text_edit = section[2], section[3]
+
                 header_type = header_combobox.currentText()
                 header_content = header_text_edit.toPlainText()
+
                 html_content += f"""
-                    <{header_type}>{header_content}</{header_type}>"""
+                    <{header_type}>{header_content}</{header_type}>
+                """
+
+            elif section[1] == "youtube":
+                video_id_edit, thumbnail_url_edit, alt_text_edit = section[2], section[3], section[4]
+
+                video_id = video_id_edit.text().strip()
+                thumbnail_url = thumbnail_url_edit.text().strip()
+                alt_text = alt_text_edit.text().strip()
+
+                if video_id and thumbnail_url and alt_text:
+                    youtube_html = f"""
+                        <div class="youtube-player">
+                            <div data-id="{video_id}" data-type="youtube-video">
+                                <img src="{thumbnail_url}" alt="{alt_text}">
+                                <span class="youtube-player__button">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" fill="none">
+                                        <path d="M40.0003 73.3332C58.4098 73.3332 73.3337 58.4093 73.3337 39.9998C73.3337 21.5903 58.4098 6.6665 40.0003 6.6665C21.5908 6.6665 6.66699 21.5903 6.66699 39.9998C6.66699 58.4093 21.5908 73.3332 40.0003 73.3332Z" fill="white" stroke="#151A23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M33.333 26.6665L53.333 39.9998L33.333 53.3332V26.6665Z" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                            </div>
+                        </div>
+                    """
+                    html_content += youtube_html
+
+            elif section[1] == "list":
+                list_combobox, list_text_edit = section[2], section[3]
+
+                list_type = list_combobox.currentText()
+                list_items = list_text_edit.toPlainText().split("\n")
+
+                list_html = f"""
+                    <div class="list_item__col --text">
+                        <{list_type} class="list_item__list">
+                """
+
+                for item in list_items:
+                    if item.strip():
+                        list_html += f"""
+                            <li>{item.strip()}</li>
+                        """
+
+                list_html += f"""
+                        </{list_type}>
+                    </div>
+                """
+                html_content += list_html
 
         html_content += """
             </div>
-        </body>
-        </html>"""
+        """
 
         self.html_edit.setPlainText(html_content)
 
@@ -539,7 +1139,7 @@ class HtmlEditor(QMainWindow):
             try:
                 if not self.image_path or not os.path.isfile(self.image_path):
                     return
-                os.remove(self.image_path)
+                # os.remove(self.image_path)
                 self.image_path = ""
                 self.confirmation_mode = False
                 self.show_red_x = False  # Reset hover effect flag
