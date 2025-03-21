@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QStandardPaths, QSize, QTimer, QPropertyAnimation, 
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QClipboard, QIcon
 from PyQt6.QtWidgets import (
     QApplication, QLabel, QMainWindow, QVBoxLayout, QPushButton, QScrollArea,
-    QWidget, QHBoxLayout, QTextEdit, QSplitter, QStackedWidget, QComboBox, QMessageBox, QFileDialog, QLineEdit
+    QWidget, QHBoxLayout, QTextEdit, QSplitter, QStackedWidget, QComboBox, QMessageBox, QFileDialog, QLineEdit, QLayout
 )
 
 def resource_path(relative_path):
@@ -826,14 +826,12 @@ class HtmlEditor(QMainWindow):
             "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
             "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
         )
-
         thumbnail_url_edit = QLineEdit()
         thumbnail_url_edit.setPlaceholderText("Wpisz URL miniaturki (maxresdefault)")
         thumbnail_url_edit.setStyleSheet(
             "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
             "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
         )
-
         alt_text_edit = QLineEdit()
         alt_text_edit.setPlaceholderText("Wpisz tekst zastępczy")
         alt_text_edit.setStyleSheet(
@@ -876,13 +874,21 @@ class HtmlEditor(QMainWindow):
         buttons_widget.setLayout(buttons_layout)
         youtube_layout.addWidget(buttons_widget)
 
-        video_id_edit.textChanged.connect(self.update_html)
+        video_id_edit.textChanged.connect(lambda: self.process_youtube_url(video_id_edit))
         thumbnail_url_edit.textChanged.connect(self.update_html)
         alt_text_edit.textChanged.connect(self.update_html)
 
         self.scroll_layout.addLayout(youtube_layout)
         self.sections.append((youtube_layout, "youtube", video_id_edit, thumbnail_url_edit, alt_text_edit))
 
+        self.update_html()
+
+    def process_youtube_url(self, video_id_edit):
+        full_url = video_id_edit.text()
+        import re
+        match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", full_url)
+        video_id = match.group(1) if match else full_url.strip()
+        video_id_edit.setText(video_id)
         self.update_html()
 
     def add_list(self, list_type):
@@ -966,25 +972,30 @@ class HtmlEditor(QMainWindow):
             self.update_html()
 
     def delete_section(self, section_layout):
-        for section in self.sections:
+        for i, section in enumerate(self.sections):
             if section[0] == section_layout:
-                if section[1] == "section":
-                    image_label = section[2]
-                    # if image_label.image_path and os.path.isfile(image_label.image_path):
-                    #     os.remove(image_label.image_path)
-                self.sections.remove(section)
+                self.sections.pop(i)
                 break
 
-        while section_layout.count():
-            item = section_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+        for i in range(self.scroll_layout.count()):
+            item = self.scroll_layout.itemAt(i)
+            if item.layout() == section_layout:
+                layout_item = self.scroll_layout.takeAt(i)
+                while section_layout.count():
+                    item = section_layout.takeAt(0)
+                    widget = item.widget()
+                    if widget:
+                        widget.deleteLater()
+                del layout_item
+                break
 
         self.update_html()
 
     def update_html(self):
-        html_content = """<div class="longdescription__template">"""
+        html_content = """
+                        <div class="longdescription__template">
+                            <div class="longdescription__template__row --layout-photo-text">
+                        """
 
         for section in self.sections:
             if section[1] == "section":
@@ -1041,17 +1052,16 @@ class HtmlEditor(QMainWindow):
 
                 if video_id and thumbnail_url and alt_text:
                     youtube_html = f"""
+                    <div class="longdescription__template__row --video">
                         <div class="youtube-player">
                             <div data-id="{video_id}" data-type="youtube-video">
                                 <img src="{thumbnail_url}" alt="{alt_text}">
                                 <span class="youtube-player__button">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" fill="none">
-                                        <path d="M40.0003 73.3332C58.4098 73.3332 73.3337 58.4093 73.3337 39.9998C73.3337 21.5903 58.4098 6.6665 40.0003 6.6665C21.5908 6.6665 6.66699 21.5903 6.66699 39.9998C6.66699 58.4093 21.5908 73.3332 40.0003 73.3332Z" fill="white" stroke="#151A23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M33.333 26.6665L53.333 39.9998L33.333 53.3332V26.6665Z" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="#e3e3e3"><path d="m380-300 280-180-280-180v360ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
                                 </span>
                             </div>
                         </div>
+                    </div>
                     """
                     html_content += youtube_html
 
@@ -1080,6 +1090,7 @@ class HtmlEditor(QMainWindow):
 
         html_content += """
             </div>
+        </div>
         """
 
         self.html_edit.setPlainText(html_content)
