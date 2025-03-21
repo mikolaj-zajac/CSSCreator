@@ -1,5 +1,5 @@
 ('C:\\Users\\Cinek\\PycharmProjects\\CSSCreator\\CSSCreator\\dist\\main.exe',
- True,
+ False,
  False,
  False,
  ['C:\\Users\\Cinek\\PycharmProjects\\CSSCreator\\CSSCreator\\ikona.ico'],
@@ -640,8 +640,8 @@
  [],
  False,
  False,
- 1742549205,
- [('run.exe',
-   'C:\\Users\\Cinek\\PycharmProjects\\CSSCreator\\.venv\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',
+ 1742551549,
+ [('runw.exe',
+   'C:\\Users\\Cinek\\PycharmProjects\\CSSCreator\\.venv\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe',
    'EXECUTABLE')],
  'C:\\Users\\Cinek\\AppData\\Local\\Programs\\Python\\Python313\\python313.dll')
