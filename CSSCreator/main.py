@@ -2,8 +2,8 @@ import json
 import os
 import random
 import shutil
-from PyQt6.QtCore import Qt, QStandardPaths, QSize, QTimer, QPropertyAnimation, QRect
-from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QClipboard, QIcon
+from PyQt6.QtCore import Qt, QStandardPaths, QSize, QTimer, QPropertyAnimation, QRect, QEvent
+from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QClipboard, QIcon, QTextCursor, QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication, QLabel, QMainWindow, QVBoxLayout, QPushButton, QScrollArea,
     QWidget, QHBoxLayout, QTextEdit, QSplitter, QStackedWidget, QComboBox, QMessageBox, QFileDialog, QLineEdit, QLayout
@@ -42,6 +42,20 @@ class HtmlEditor(QMainWindow):
             self.light_mode = self.settings.get("light_mode", False)
             self.show_main_pages()
             self.apply_styles()
+
+    def closeEvent(self, event):
+        reply = QMessageBox.question(
+            self,
+            "Uwaga!",
+            "Czy napewno chcesz zamknąć aplikacje?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            event.accept()
+        else:
+            event.ignore()
 
     def load_settings(self):
         if os.path.exists(HtmlEditor.SETTINGS_FILE):
@@ -426,11 +440,9 @@ class HtmlEditor(QMainWindow):
 
                 # Update draggable label color
                 label.setStyleSheet("""
-                    background-color: #f0f0f0; 
-                    border: 1px solid #ccc;
+                    border: 2px dashed gray; padding: 20px; background-color: #e9ecef; color: black;
                 """ if self.light_mode else """
-                    background-color: #333; 
-                    border: 1px solid #444;
+                    border: 2px dashed gray; padding: 20px; background-color: #444; color: white;
                 """)
 
                 # Update styles for buttons inside section
@@ -604,38 +616,38 @@ class HtmlEditor(QMainWindow):
                 """)
 
 
-            elif section[1] == "youtube":
-                video_id_edit, thumbnail_url_edit, alt_text_edit = section[2], section[3], section[4]
-
-                video_id_edit.setStyleSheet("""
-                    background-color: #e9ecef; 
-                    color: black; 
-                    padding: 5px;
-                """ if self.light_mode else """
-                    background-color: #222; 
-                    color: white; 
-                    padding: 5px;
-                """)
-
-                thumbnail_url_edit.setStyleSheet("""
-                    background-color: #e9ecef; 
-                    color: black; 
-                    padding: 5px;
-                """ if self.light_mode else """
-                    background-color: #222; 
-                    color: white; 
-                    padding: 5px;
-                """)
-
-                alt_text_edit.setStyleSheet("""
-                    background-color: #e9ecef; 
-                    color: black; 
-                    padding: 5px;
-                """ if self.light_mode else """
-                    background-color: #222; 
-                    color: white; 
-                    padding: 5px;
-                """)
+            # elif section[1] == "youtube":
+            #     video_id_edit, thumbnail_url_edit, alt_text_edit = section[2], section[3], section[4]
+            #
+            #     video_id_edit.setStyleSheet("""
+            #         background-color: #e9ecef;
+            #         color: black;
+            #         padding: 5px;
+            #     """ if self.light_mode else """
+            #         background-color: #222;
+            #         color: white;
+            #         padding: 5px;
+            #     """)
+            #
+            #     thumbnail_url_edit.setStyleSheet("""
+            #         background-color: #e9ecef;
+            #         color: black;
+            #         padding: 5px;
+            #     """ if self.light_mode else """
+            #         background-color: #222;
+            #         color: white;
+            #         padding: 5px;
+            #     """)
+            #
+            #     alt_text_edit.setStyleSheet("""
+            #         background-color: #e9ecef;
+            #         color: black;
+            #         padding: 5px;
+            #     """ if self.light_mode else """
+            #         background-color: #222;
+            #         color: white;
+            #         padding: 5px;
+            #     """)
 
             elif section[1] == "list":
                 combobox, text_edit = section[2], section[3]
@@ -691,8 +703,8 @@ class HtmlEditor(QMainWindow):
 
         image_label = self.DraggableLabel(editor=self)
         image_label.setStyleSheet(
-            "background-color: #f0f0f0; border: 1px solid #ccc;" if self.light_mode else
-            "background-color: #333; border: 1px solid #444;"
+            "border: 2px dashed gray; padding: 20px; background-color: #e9ecef; color: black;" if self.light_mode else
+            "border: 2px dashed gray; padding: 20px; background-color: #444; color: white;"
         )
 
         text_edit = QTextEdit()
@@ -895,26 +907,61 @@ class HtmlEditor(QMainWindow):
         list_layout = QHBoxLayout()
 
         list_combobox = QComboBox()
-        list_combobox.addItems(["ul", "ol"])  # Allow switching between UL and OL
+        list_combobox.addItems(["ul", "ol"])
         list_combobox.setCurrentText(list_type)
         list_combobox.setStyleSheet(
             "background-color: #e9ecef; color: black; padding: 10px; font-size: 14px;" if self.light_mode else
             "background-color: #222; color: white; padding: 10px; font-size: 14px;"
         )
-
         list_combobox.currentTextChanged.connect(self.update_html)
 
         list_text_edit = QTextEdit()
         list_text_edit.setPlaceholderText("Wpisz elementy listy, każdy w nowej linii...")
-        list_text_edit.textChanged.connect(lambda: self.update_html())  # Auto-update HTML on item addition
+        list_text_edit.textChanged.connect(self.update_html)
         list_text_edit.setStyleSheet(
             "background-color: #e9ecef; color: black; border-radius: 5px; padding: 5px;" if self.light_mode else
             "background-color: #222; color: white; border-radius: 5px; padding: 5px;"
         )
 
+        def handle_key_press(event):
+            cursor = list_text_edit.textCursor()
+
+            if event.key() == Qt.Key.Key_Tab:
+                current_line = cursor.block().text()
+
+                if not current_line.strip() or set(current_line.strip()) == {"⤷"}:
+                    cursor.insertText("⤷")
+                return True
+
+            elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock, QTextCursor.MoveMode.KeepAnchor)
+                current_line = cursor.selectedText()
+
+                if not current_line.strip() or set(current_line.strip()) == {"⤷"}:
+                    indentation = current_line.count("⤷")
+                    cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                    cursor.insertText("\n" + "⤷" * indentation)
+                else:
+                    cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                    cursor.insertText("\n")
+
+                return True
+
+            return False
+
+        list_text_edit.installEventFilter(self)
+
+        def eventFilter(obj, event):
+            if obj == list_text_edit and event.type() == QEvent.Type.KeyPress:
+                if handle_key_press(event):
+                    return True
+            return super(type(self), self).eventFilter(obj, event)
+
+        self.eventFilter = eventFilter
+
         delete_button = QPushButton("Usuń Sekcję")
         delete_button.setStyleSheet(
-            "background-color: #FF4C4C; color: black; padding: 5px; border-radius: 5px; " if self.light_mode else
+            "background-color: #FF4C4C; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
             "background-color: #FF4C4C; color: white; padding: 5px; border-radius: 5px;"
         )
         delete_button.clicked.connect(lambda: self.delete_section(list_layout))
@@ -924,14 +971,14 @@ class HtmlEditor(QMainWindow):
             "background-color: #6395ED; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
             "background-color: #4567BB; color: white; padding: 5px; border-radius: 5px;"
         )
-        move_up_button.clicked.connect(lambda: self.move_section(list_layout, -1))  # Move up
+        move_up_button.clicked.connect(lambda: self.move_section(list_layout, -1))
 
         move_down_button = QPushButton("↓")
         move_down_button.setStyleSheet(
             "background-color: #6395ED; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
             "background-color: #4567BB; color: white; padding: 5px; border-radius: 5px;"
         )
-        move_down_button.clicked.connect(lambda: self.move_section(list_layout, 1))  # Move down
+        move_down_button.clicked.connect(lambda: self.move_section(list_layout, 1))
 
         buttons_layout = QVBoxLayout()
         buttons_layout.addWidget(move_up_button)
@@ -946,7 +993,6 @@ class HtmlEditor(QMainWindow):
 
         self.scroll_layout.addLayout(list_layout)
 
-        # Save section info for tracking
         self.sections.append((list_layout, "list", list_combobox, list_text_edit))
         self.update_html()
 
@@ -972,24 +1018,142 @@ class HtmlEditor(QMainWindow):
             self.update_html()
 
     def delete_section(self, section_layout):
+        index_to_remove = None
         for i, section in enumerate(self.sections):
             if section[0] == section_layout:
-                self.sections.pop(i)
-                break
-
-        for i in range(self.scroll_layout.count()):
-            item = self.scroll_layout.itemAt(i)
-            if item.layout() == section_layout:
-                layout_item = self.scroll_layout.takeAt(i)
-                while section_layout.count():
-                    item = section_layout.takeAt(0)
+                index_to_remove = i
+                section_widgets = []
+                for j in range(section_layout.count()):
+                    item = section_layout.itemAt(j)
                     widget = item.widget()
                     if widget:
-                        widget.deleteLater()
-                del layout_item
-                break
+                        section_widgets.append(widget)
+                        widget.hide()
 
-        self.update_html()
+                confirmation_layout = QVBoxLayout()
+                confirmation_label = QLabel("Czy na pewno chcesz usunąć tą sekcję?")
+                confirmation_label.setStyleSheet("color: white; font-size: 16px; font-weight: bold;")
+                confirmation_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                confirmation_layout.addWidget(confirmation_label)
+
+                button_layout = QHBoxLayout()
+                yes_button = QPushButton("Tak")
+                no_button = QPushButton("Nie")
+
+                yes_button.setStyleSheet(
+                    "background-color: #FF4C4C; color: white; padding: 10px; font-size: 14px; border-radius: 5px;")
+                no_button.setStyleSheet(
+                    "background-color: #4CAF50; color: white; padding: 10px; font-size: 14px; border-radius: 5px;")
+
+                button_layout.addWidget(yes_button)
+                button_layout.addWidget(no_button)
+                confirmation_layout.addLayout(button_layout)
+
+                confirmation_widget = QWidget()
+                confirmation_widget.setLayout(confirmation_layout)
+                confirmation_widget.setStyleSheet("background-color: #8f2f2f; padding: 10px; border-radius: 5px;")
+
+                parent_layout = section_layout.parentWidget().layout()
+                if parent_layout:
+                    confirmation_index = -1
+                    for j in range(parent_layout.count()):
+                        if parent_layout.itemAt(j).layout() == section_layout:
+                            confirmation_index = j
+                            break
+                    if confirmation_index >= 0:
+                        parent_layout.insertWidget(confirmation_index + 1, confirmation_widget)
+
+                def confirm_delete():
+                    if index_to_remove is not None:
+                        self.sections.pop(index_to_remove)
+                    for i in range(self.scroll_layout.count()):
+                        item = self.scroll_layout.itemAt(i)
+                        if item.layout() == section_layout:
+                            layout_item = self.scroll_layout.takeAt(i)
+                            while section_layout.count():
+                                item = section_layout.takeAt(0)
+                                widget = item.widget()
+                                if widget:
+                                    widget.deleteLater()
+                            del layout_item
+                            break
+                    confirmation_widget.deleteLater()
+                    self.update_html()
+
+                def cancel_delete():
+                    confirmation_widget.deleteLater()
+                    for widget in section_widgets:
+                        widget.show()
+
+                yes_button.clicked.connect(confirm_delete)
+                no_button.clicked.connect(cancel_delete)
+                return
+
+
+    def register_shortcuts(self):
+        # Ctrl+Shift+V: Paste plain text
+        paste_plain_text_shortcut = QShortcut(QKeySequence("Ctrl+Shift+V"), self)
+        paste_plain_text_shortcut.activated.connect(self.paste_plain_text)
+
+        # Ctrl+I: Toggle italic
+        italic_shortcut = QShortcut(QKeySequence("Ctrl+I"), self)
+        italic_shortcut.activated.connect(self.toggle_italic)
+
+        # Ctrl+B: Toggle bold
+        bold_shortcut = QShortcut(QKeySequence("Ctrl+B"), self)
+        bold_shortcut.activated.connect(self.toggle_bold)
+
+        # Ctrl+U: Toggle underline
+        underline_shortcut = QShortcut(QKeySequence("Ctrl+U"), self)
+        underline_shortcut.activated.connect(self.toggle_underline)
+
+        # Ctrl+Z: Undo
+        undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
+        undo_shortcut.activated.connect(self.undo_action)
+
+    def paste_plain_text(self):
+        clipboard = QApplication.clipboard()
+        plain_text = clipboard.text(QClipboard.Mode.Clipboard)
+
+        cursor = self.html_edit.textCursor()
+        cursor.insertText(plain_text)
+
+    def toggle_italic(self):
+        cursor = self.html_edit.textCursor()
+        if not cursor.hasSelection():
+            return
+        char_format = cursor.charFormat()
+        char_format.setFontItalic(not char_format.fontItalic())
+        cursor.mergeCharFormat(char_format)
+        self.sync_html()
+
+    def toggle_bold(self):
+        cursor = self.html_edit.textCursor()
+        if not cursor.hasSelection():
+            return
+        char_format = cursor.charFormat()
+        current_weight = char_format.fontWeight()
+        new_weight = QFont.Weight.Bold if current_weight != QFont.Weight.Bold else QFont.Weight.Normal
+        char_format.setFontWeight(new_weight)
+        cursor.mergeCharFormat(char_format)
+        self.sync_html()
+
+    def toggle_underline(self):
+        cursor = self.html_edit.textCursor()
+        if not cursor.hasSelection():
+            return
+        char_format = cursor.charFormat()
+        char_format.setFontUnderline(not char_format.fontUnderline())
+        cursor.mergeCharFormat(char_format)
+        self.sync_html()
+
+    def sync_html(self):
+        html_content = self.html_edit.toHtml()
+        self.html_view.setHtml(html_content)
+
+    def undo_action(self):
+        self.html_edit.undo()
+
 
     def update_html(self):
         html_content = """
@@ -1066,26 +1230,62 @@ class HtmlEditor(QMainWindow):
                     html_content += youtube_html
 
             elif section[1] == "list":
+
                 list_combobox, list_text_edit = section[2], section[3]
 
                 list_type = list_combobox.currentText()
+
                 list_items = list_text_edit.toPlainText().split("\n")
 
-                list_html = f"""
-                    <div class="list_item__col --text">
-                        <{list_type} class="list_item__list">
-                """
+                list_html = f"<div class=\"list_item__col --text\">\n"
+
+                previous_depth = 0
 
                 for item in list_items:
-                    if item.strip():
-                        list_html += f"""
-                            <li>{item.strip()}</li>
-                        """
 
-                list_html += f"""
-                        </{list_type}>
-                    </div>
-                """
+                    stripped_item = item.strip()
+
+                    current_depth = stripped_item.count("⤷")
+
+                    if stripped_item:
+
+                        stripped_item = stripped_item.replace("⤷", "").strip()
+
+                        if current_depth == 0:
+
+                            if previous_depth > 0:
+                                list_html += f"{' ' * (4 * previous_depth)}</{list_type}>\n" * previous_depth
+
+                                previous_depth = 0
+
+                            list_html += f"<p>{stripped_item}</p>\n"
+
+
+                        else:
+
+                            if previous_depth == 0:
+
+                                list_html += f"<{list_type} class=\"list_item__list\">\n"
+
+                            elif current_depth > previous_depth:
+
+                                list_html += f"{' ' * (4 * previous_depth)}<{list_type}>\n" * (
+                                            current_depth - previous_depth)
+
+                            elif current_depth < previous_depth:
+
+                                list_html += f"{' ' * (4 * (current_depth + 1))}</{list_type}>\n" * (
+                                            previous_depth - current_depth)
+
+                            list_html += f"{' ' * (4 * current_depth)}<li>{stripped_item}</li>\n"
+
+                            previous_depth = current_depth
+
+                if previous_depth > 0:
+                    list_html += f"{' ' * (4 * previous_depth)}</{list_type}>\n" * previous_depth
+
+                list_html += "</div>\n"
+
                 html_content += list_html
 
         html_content += """
@@ -1106,6 +1306,7 @@ class HtmlEditor(QMainWindow):
             self.image_path = ""
             self.target_directory = self.create_directory_on_start()
             self.confirmation_mode = False
+            self.confirmation_widget = None
             self.show_red_x = False
 
         def create_directory_on_start(self):
@@ -1116,47 +1317,68 @@ class HtmlEditor(QMainWindow):
                 os.makedirs(target_directory)
             return target_directory
 
-        def dragEnterEvent(self, event):
-            if event.mimeData().hasUrls():
-                event.acceptProposedAction()
-
-        def dropEvent(self, event):
-            try:
-                urls = event.mimeData().urls()
-                if urls:
-                    self.image_path = urls[0].toLocalFile()
-                    self.copy_and_display_image(self.image_path)
-            except Exception as e:
-                print(f"Error during dropEvent: {e}")
-
         def mousePressEvent(self, event):
+            if self.confirmation_mode:
+                return
+
             if event.button() == Qt.MouseButton.LeftButton:
-                if self.image_path and self.confirmation_mode:
-                    self.delete_image()
-                elif self.image_path and not self.confirmation_mode:
-                    self.confirmation_mode = True
-                    self.update()  # Trigger a repaint to show the confirmation text
+                if self.image_path:
+                    self.enable_confirmation_mode()
                 else:
                     file_dialog = QFileDialog()
                     desktop_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
-                    file_dialog.setDirectory(desktop_path)  # Start file dialog at desktop
-                    file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
+                    file_dialog.setDirectory(desktop_path)
+                    file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp)")
                     if file_dialog.exec():
                         selected_file = file_dialog.selectedFiles()
                         if selected_file:
                             self.copy_and_display_image(selected_file[0])
 
+        def enable_confirmation_mode(self):
+            if not self.confirmation_widget:
+                self.confirmation_widget = QWidget(self)
+                self.confirmation_widget.setStyleSheet("background-color: rgba(0, 0, 0, 180);")
+                self.confirmation_widget_layout = QVBoxLayout(self.confirmation_widget)
+                self.confirmation_widget_layout.setContentsMargins(10, 10, 10, 10)
+
+                message_label = QLabel("Czy na pewno chcesz usunąć?")
+                message_label.setStyleSheet("color: white; font-size: 14px; font-weight: bold;")
+                message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.confirmation_widget_layout.addWidget(message_label)
+
+                button_layout = QHBoxLayout()
+                yes_button = QPushButton("Tak")
+                no_button = QPushButton("Nie")
+                yes_button.setStyleSheet("background-color: #FF4C4C; color: white; border-radius: 5px; padding: 10px;")
+                no_button.setStyleSheet("background-color: #4CAF50; color: white; border-radius: 5px; padding: 10px;")
+
+                yes_button.clicked.connect(self.delete_image)
+                no_button.clicked.connect(self.cancel_confirmation_mode)
+
+                button_layout.addWidget(yes_button)
+                button_layout.addWidget(no_button)
+                self.confirmation_widget_layout.addLayout(button_layout)
+
+            self.show_red_x = False
+            self.update()
+            self.confirmation_widget.setGeometry(self.rect())
+            self.confirmation_mode = True
+            self.confirmation_widget.show()
+
+        def cancel_confirmation_mode(self):
+            if self.confirmation_widget:
+                self.confirmation_widget.hide()
+            self.confirmation_mode = False
+
         def delete_image(self):
             try:
                 if not self.image_path or not os.path.isfile(self.image_path):
                     return
-                # os.remove(self.image_path)
                 self.image_path = ""
-                self.confirmation_mode = False
-                self.show_red_x = False  # Reset hover effect flag
-                self.setPixmap(QPixmap())  # Reset to no image
+                self.setPixmap(QPixmap())
                 self.setText("Przeciągnij obraz tutaj lub kliknij, aby wybrać plik")
                 self.setStyleSheet("border: 2px dashed gray; padding: 20px; background-color: #444; color: white;")
+                self.cancel_confirmation_mode()
                 if self.editor and hasattr(self.editor, "update_html"):
                     self.editor.update_html()
             except Exception as e:
@@ -1168,48 +1390,44 @@ class HtmlEditor(QMainWindow):
                     return
                 original_name = os.path.basename(source_path)
                 random_digits = random.randint(1000, 9999)
-                new_file_name = f"{os.path.splitext(original_name)[0]}_{random_digits}.jpg"
+                new_file_name = f"{os.path.splitext(original_name)[0]}_{random_digits}.webp"
                 destination_path = os.path.join(self.target_directory, new_file_name)
                 shutil.copy(source_path, destination_path)
                 self.image_path = destination_path
                 self.setPixmap(QPixmap(self.image_path).scaled(300, 300, Qt.AspectRatioMode.KeepAspectRatio))
-                self.show_red_x = False  # Reset hover effect when new image is added
-                self.confirmation_mode = False  # Reset confirmation mode
+                self.show_red_x = False
+                self.confirmation_mode = False
                 if self.editor and hasattr(self.editor, "update_html"):
                     self.editor.update_html()
             except Exception as e:
                 print(f"Error during copy_and_display_image: {e}")
 
         def enterEvent(self, event):
-            if self.image_path:
+            if self.image_path and not self.confirmation_mode:
                 self.show_red_x = True
                 self.update()
 
         def leaveEvent(self, event):
-            if self.image_path:
+            if self.image_path and not self.confirmation_mode:
                 self.show_red_x = False
                 self.update()
 
+        def resizeEvent(self, event):
+            super().resizeEvent(event)
+            if self.confirmation_widget:
+                self.confirmation_widget.setGeometry(self.rect())
+
         def paintEvent(self, event):
             super().paintEvent(event)
-            if self.image_path:
+            if self.show_red_x:
                 painter = QPainter(self)
-                if self.show_red_x:
-                    painter.setPen(QColor(255, 0, 0))
-                    painter.setBrush(QColor(255, 0, 0, 100))
-                    painter.drawRect(0, 0, self.width(), self.height())
-                    font = QFont("Arial", 36, QFont.Weight.Bold)
-                    painter.setFont(font)
-                    painter.setPen(QColor(255, 255, 255))
-                    painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "X")
-                if self.confirmation_mode:
-                    painter.setPen(QColor(255, 255, 255))
-                    painter.setBrush(QColor(0, 0, 0, 200))
-                    painter.drawRect(0, 0, self.width(), self.height())
-                    font = QFont("Arial", 16, QFont.Weight.Bold)
-                    painter.setFont(font)
-                    painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                                     "Czy na pewno chcesz usunąć?\nKliknij aby potwierdzić")
+                painter.setPen(QColor(255, 0, 0))
+                painter.setBrush(QColor(255, 0, 0, 100))
+                painter.drawRect(0, 0, self.width(), self.height())
+                font = QFont("Arial", 36, QFont.Weight.Bold)
+                painter.setFont(font)
+                painter.setPen(QColor(255, 255, 255))
+                painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "X")
 
 
 if __name__ == "__main__":
