@@ -3,12 +3,18 @@ import os
 import random
 import shutil
 from PyQt6.QtCore import Qt, QStandardPaths, QSize, QTimer, QPropertyAnimation, QRect, QEvent
-from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QClipboard, QIcon, QTextCursor, QShortcut, QKeySequence
+from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QClipboard, QIcon, QTextCursor, QShortcut, QKeySequence, \
+    QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QLabel, QMainWindow, QVBoxLayout, QPushButton, QScrollArea,
-    QWidget, QHBoxLayout, QTextEdit, QSplitter, QStackedWidget, QComboBox, QMessageBox, QFileDialog, QLineEdit, QLayout
+    QWidget, QHBoxLayout, QTextEdit, QSplitter, QStackedWidget, QComboBox, QMessageBox, QFileDialog, QLineEdit, QLayout,
+    QDialog
 )
-
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+    HAS_WEBENGINE = True
+except ImportError:
+    HAS_WEBENGINE = False
 def resource_path(relative_path):
     """ Get the absolute path to a resource, works for dev and for PyInstaller. """
     if getattr(sys, "frozen", False):  # If the app is frozen when packaged with PyInstaller
@@ -22,6 +28,8 @@ class HtmlEditor(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.editors = []
+        self.current_editor = None
         self.setWindowTitle("Edytor opisów długich Moto-Toura 2025")
         self.setGeometry(100, 100, 1000, 600)
         
@@ -242,10 +250,21 @@ class HtmlEditor(QMainWindow):
 
         self.right_widget = QWidget()
         self.right_layout = QVBoxLayout()
+
+        self.preview_button = QPushButton("Podgląd HTML")
+        self.preview_button.setStyleSheet("""
+                background-color: #6c757d; 
+                color: white; 
+                padding: 10px; 
+                border-radius: 5px;
+            """)
+        self.preview_button.clicked.connect(self.show_html_preview)
+        self.right_layout.addWidget(self.preview_button)
+
         self.right_widget.setLayout(self.right_layout)
 
         self.html_edit = QTextEdit()
-        self.html_edit.setReadOnly(False)
+        self.html_edit.setReadOnly(True)
         self.right_layout.addWidget(self.html_edit)
 
         self.copy_html_button = QPushButton("Skopiuj kod HTML")
@@ -256,6 +275,35 @@ class HtmlEditor(QMainWindow):
         self.splitter.setSizes([700, 300])
 
         self.stack.addWidget(self.editor_page)
+
+    def show_html_preview(self):
+        # Create preview dialog
+        self.preview_dialog = QDialog(self)
+        self.preview_dialog.setWindowTitle("Podgląd HTML")
+        self.preview_dialog.resize(800, 600)
+
+        layout = QVBoxLayout()
+
+        # Create web view for preview
+        try:
+            from PyQt6.QtWebEngineWidgets import QWebEngineView
+            self.web_view = QWebEngineView()
+            html_content = self.html_edit.toPlainText()
+            self.web_view.setHtml(html_content)
+            layout.addWidget(self.web_view)
+        except ImportError:
+            # Fallback if WebEngine is not available
+            error_label = QLabel("Podgląd wymaga zainstalowanego PyQt6-WebEngine")
+            layout.addWidget(error_label)
+
+        # Close button
+        close_button = QPushButton("Zamknij")
+
+        close_button.clicked.connect(self.preview_dialog.close)
+        layout.addWidget(close_button)
+
+        self.preview_dialog.setLayout(layout)
+        self.preview_dialog.exec()
 
     def show_editor_page(self):
         self.stack.setCurrentWidget(self.editor_page)
@@ -307,6 +355,19 @@ class HtmlEditor(QMainWindow):
             self.setStyleSheet("background-color: white; color: black;")
         else:
             self.setStyleSheet("background-color: #2b2b2b; color: white;")
+
+        if hasattr(self, 'preview_button'):
+            self.preview_button.setStyleSheet("""
+                    background-color: #6c757d; 
+                    color: white; 
+                    padding: 10px; 
+                    border-radius: 5px;
+                """ if self.light_mode else """
+                    background-color: #495057; 
+                    color: white; 
+                    padding: 10px; 
+                    border-radius: 5px;
+                """)
 
         # Update individual buttons
         if hasattr(self, 'start_button'):
@@ -708,6 +769,7 @@ class HtmlEditor(QMainWindow):
         )
 
         text_edit = QTextEdit()
+
         text_edit.setPlaceholderText("Wpisz treść paragrafu...")
         text_edit.textChanged.connect(self.update_html)
         text_edit.setStyleSheet("""
@@ -756,6 +818,37 @@ class HtmlEditor(QMainWindow):
         buttons_widget = QWidget()
         buttons_widget.setLayout(buttons_layout)
 
+        def handle_key_press(event):
+            cursor = text_edit.textCursor()
+
+            if event.key() == Qt.Key.Key_Tab:
+                current_line = cursor.block().text()
+                cursor_pos_in_block = cursor.positionInBlock()
+
+                if cursor_pos_in_block == 0 or (cursor_pos_in_block > 0 and current_line[
+                                                                            :cursor_pos_in_block].strip() == "⤷" * cursor_pos_in_block):
+
+                    red_format = QTextCharFormat()
+                    red_format.setForeground(QColor("red"))
+                    cursor.insertText("⤷", red_format)
+                    cursor.setCharFormat(QTextCharFormat())
+                    text_edit.setTextCursor(cursor)
+                else:
+                    cursor.insertText("    ")
+                return True
+
+            return False
+
+        text_edit.installEventFilter(self)
+
+        def eventFilter(obj, event):
+            if obj == text_edit and event.type() == QEvent.Type.KeyPress:
+                if handle_key_press(event):
+                    return True
+            return super(type(self), self).eventFilter(obj, event)
+
+        self.eventFilter = eventFilter
+
         if self.section_direction:
             section_layout.addWidget(image_label)
             section_layout.addWidget(text_edit)
@@ -769,6 +862,9 @@ class HtmlEditor(QMainWindow):
         self.sections.append(
             (section_layout, "section", image_label, text_edit, buttons_widget, self.section_direction))
         self.section_direction = not self.section_direction
+
+
+
         self.update_html()
 
     def add_header(self):
@@ -928,23 +1024,17 @@ class HtmlEditor(QMainWindow):
 
             if event.key() == Qt.Key.Key_Tab:
                 current_line = cursor.block().text()
+                cursor_pos_in_block = cursor.positionInBlock()
 
-                if not current_line.strip() or set(current_line.strip()) == {"⤷"}:
-                    cursor.insertText("⤷")
-                return True
+                if cursor_pos_in_block == 0 or (cursor_pos_in_block > 0 and current_line[:cursor_pos_in_block].strip() == "⤷" * cursor_pos_in_block):
 
-            elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock, QTextCursor.MoveMode.KeepAnchor)
-                current_line = cursor.selectedText()
-
-                if not current_line.strip() or set(current_line.strip()) == {"⤷"}:
-                    indentation = current_line.count("⤷")
-                    cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock)
-                    cursor.insertText("\n" + "⤷" * indentation)
+                    red_format = QTextCharFormat()
+                    red_format.setForeground(QColor("red"))
+                    cursor.insertText("⤷", red_format)
+                    cursor.setCharFormat(QTextCharFormat())
+                    list_text_edit.setTextCursor(cursor)
                 else:
-                    cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock)
-                    cursor.insertText("\n")
-
+                    cursor.insertText("    ")
                 return True
 
             return False
@@ -1089,71 +1179,99 @@ class HtmlEditor(QMainWindow):
                 no_button.clicked.connect(cancel_delete)
                 return
 
+    def _get_focused_text_edit(self):
+        try:
+            widget = QApplication.focusWidget()
+            if isinstance(widget, QTextEdit) and widget != self.html_edit:
+                return widget
+            return None
+        except:
+            return None
+
+    def _safe_toggle_bold(self):
+        if editor := self._get_focused_text_edit():
+            cursor = editor.textCursor()
+            fmt = cursor.charFormat()
+            fmt.setFontWeight(QFont.Weight.Bold if fmt.fontWeight() != QFont.Weight.Bold
+                              else QFont.Weight.Normal)
+            cursor.mergeCharFormat(fmt)
+
+    def _safe_toggle_italic(self):
+        if editor := self._get_focused_text_edit():
+            cursor = editor.textCursor()
+            fmt = cursor.charFormat()
+            fmt.setFontItalic(not fmt.fontItalic())
+            cursor.mergeCharFormat(fmt)
+
+    def _safe_toggle_underline(self):
+        if editor := self._get_focused_text_edit():
+            cursor = editor.textCursor()
+            fmt = cursor.charFormat()
+            fmt.setFontUnderline(not fmt.fontUnderline())
+            cursor.mergeCharFormat(fmt)
+
+    def _safe_paste_plain_text(self):
+        if editor := self._get_focused_text_edit():
+            editor.insertPlainText(QApplication.clipboard().text())
 
     def register_shortcuts(self):
-        # Ctrl+Shift+V: Paste plain text
-        paste_plain_text_shortcut = QShortcut(QKeySequence("Ctrl+Shift+V"), self)
-        paste_plain_text_shortcut.activated.connect(self.paste_plain_text)
+        # Keep Ctrl+Z as is
+        QShortcut(QKeySequence("Ctrl+Z"), self).activated.connect(self.undo_action)
 
-        # Ctrl+I: Toggle italic
-        italic_shortcut = QShortcut(QKeySequence("Ctrl+I"), self)
-        italic_shortcut.activated.connect(self.toggle_italic)
+        # Formatting shortcuts - will work on any focused QTextEdit that isn't html_edit
+        QShortcut(QKeySequence("Ctrl+B"), self).activated.connect(
+            self._safe_toggle_bold
+        )
+        QShortcut(QKeySequence("Ctrl+I"), self).activated.connect(
+            self._safe_toggle_italic
+        )
+        QShortcut(QKeySequence("Ctrl+U"), self).activated.connect(
+            self._safe_toggle_underline
+        )
+        QShortcut(QKeySequence("Ctrl+Shift+V"), self).activated.connect(
+            self._safe_paste_plain_text
+        )
 
-        # Ctrl+B: Toggle bold
-        bold_shortcut = QShortcut(QKeySequence("Ctrl+B"), self)
-        bold_shortcut.activated.connect(self.toggle_bold)
+    def paste_plain_text_to_focused_widget(self):
+        focused_widget = QApplication.focusWidget()
+        if isinstance(focused_widget, (QTextEdit, QLineEdit)):
+            clipboard = QApplication.clipboard()
+            plain_text = clipboard.text(QClipboard.Mode.Clipboard)
+            focused_widget.insertPlainText(plain_text)
 
-        # Ctrl+U: Toggle underline
-        underline_shortcut = QShortcut(QKeySequence("Ctrl+U"), self)
-        underline_shortcut.activated.connect(self.toggle_underline)
+    def _toggle_text_format(self, editor, format_type):
+        if editor is None:
+            return
 
-        # Ctrl+Z: Undo
-        undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
-        undo_shortcut.activated.connect(self.undo_action)
+        cursor = editor.textCursor()
+        fmt = cursor.charFormat()
 
-    def paste_plain_text(self):
+        if format_type == "bold":
+            fmt.setFontWeight(QFont.Weight.Bold if fmt.fontWeight() != QFont.Weight.Bold
+                              else QFont.Weight.Normal)
+        elif format_type == "italic":
+            fmt.setFontItalic(not fmt.fontItalic())
+        elif format_type == "underline":
+            fmt.setFontUnderline(not fmt.fontUnderline())
+
+        cursor.mergeCharFormat(fmt)
+        editor.setCurrentCharFormat(fmt)
+
+    def _paste_plain_text(self, editor):
+        if editor is None:
+            return
+
         clipboard = QApplication.clipboard()
-        plain_text = clipboard.text(QClipboard.Mode.Clipboard)
+        editor.insertPlainText(clipboard.text())
 
-        cursor = self.html_edit.textCursor()
-        cursor.insertText(plain_text)
-
-    def toggle_italic(self):
-        cursor = self.html_edit.textCursor()
-        if not cursor.hasSelection():
-            return
-        char_format = cursor.charFormat()
-        char_format.setFontItalic(not char_format.fontItalic())
-        cursor.mergeCharFormat(char_format)
-        self.sync_html()
-
-    def toggle_bold(self):
-        cursor = self.html_edit.textCursor()
-        if not cursor.hasSelection():
-            return
-        char_format = cursor.charFormat()
-        current_weight = char_format.fontWeight()
-        new_weight = QFont.Weight.Bold if current_weight != QFont.Weight.Bold else QFont.Weight.Normal
-        char_format.setFontWeight(new_weight)
-        cursor.mergeCharFormat(char_format)
-        self.sync_html()
-
-    def toggle_underline(self):
-        cursor = self.html_edit.textCursor()
-        if not cursor.hasSelection():
-            return
-        char_format = cursor.charFormat()
-        char_format.setFontUnderline(not char_format.fontUnderline())
-        cursor.mergeCharFormat(char_format)
-        self.sync_html()
-
-    def sync_html(self):
-        html_content = self.html_edit.toHtml()
-        self.html_view.setHtml(html_content)
+    def _paste_to_focused(self):
+        focused = QApplication.focusWidget()
+        if isinstance(focused, (QTextEdit, QLineEdit)) and focused != self.html_edit:  # Only for editable fields
+            clipboard = QApplication.clipboard()
+            focused.insertPlainText(clipboard.text())
 
     def undo_action(self):
         self.html_edit.undo()
-
 
     def update_html(self):
         html_content = """
@@ -1166,11 +1284,51 @@ class HtmlEditor(QMainWindow):
                 image_label, text_edit, direction = section[2], section[3], section[5]
 
                 text_content = text_edit.toPlainText()
-                text_html = f"""
-                    <div class="longdescription__template__col --text">
-                        <p>{text_content}</p>
-                    </div>
-                """
+                lines = text_content.split('\n')
+                html_lines = []
+                current_depth = 0
+                in_paragraph = False
+                paragraph_lines = []
+
+                for line in lines:
+                    line = line.rstrip()
+                    arrows = len(line) - len(line.lstrip('⤷'))
+                    content = line.lstrip('⤷').strip()
+
+                    if arrows > 0:
+                        if paragraph_lines:
+                            html_lines.append(f"<p>{'<br>'.join(paragraph_lines)}</p>")
+                            paragraph_lines = []
+                            in_paragraph = False
+
+                        while current_depth > arrows:
+                            html_lines.append("</ol>")
+                            current_depth -= 1
+
+                        while current_depth < arrows:
+                            html_lines.append("<ol>")
+                            current_depth += 1
+
+                        html_lines.append(f"<li>{content}</li>")
+                    else:
+                        if current_depth > 0:
+                            html_lines.append("</ol>" * current_depth)
+                            current_depth = 0
+                        paragraph_lines.append(line)
+                        in_paragraph = True
+
+                if paragraph_lines:
+                    html_lines.append(f"<p>{'<br>'.join(paragraph_lines)}</p>")
+                elif current_depth > 0:
+                    html_lines.append("</ol>" * current_depth)
+
+                text_html = f"""<div class="longdescription__template__col --text">
+                {''.join(html_lines)}
+                </div>"""
+
+                text_html = f"""<div class="longdescription__template__col --text">
+                {''.join(html_lines)}
+                </div>"""
 
                 if image_label.image_path and os.path.isfile(image_label.image_path):
                     file_name = os.path.basename(image_label.image_path)
@@ -1337,7 +1495,7 @@ class HtmlEditor(QMainWindow):
         def enable_confirmation_mode(self):
             if not self.confirmation_widget:
                 self.confirmation_widget = QWidget(self)
-                self.confirmation_widget.setStyleSheet("background-color: rgba(0, 0, 0, 180);")
+                self.confirmation_widget.setStyleSheet("background-color: rgba(125, 0, 0, 180);")
                 self.confirmation_widget_layout = QVBoxLayout(self.confirmation_widget)
                 self.confirmation_widget_layout.setContentsMargins(10, 10, 10, 10)
 
