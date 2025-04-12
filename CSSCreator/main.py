@@ -2,7 +2,7 @@ import json
 import os
 import random
 import shutil
-from PyQt6.QtCore import Qt, QStandardPaths, QSize, QTimer, QPropertyAnimation, QRect, QEvent
+from PyQt6.QtCore import Qt, QStandardPaths, QSize, QTimer, QPropertyAnimation, QRect, QEvent, QUrl
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QClipboard, QIcon, QTextCursor, QShortcut, QKeySequence, \
     QTextCharFormat
 from PyQt6.QtWidgets import (
@@ -277,26 +277,240 @@ class HtmlEditor(QMainWindow):
         self.stack.addWidget(self.editor_page)
 
     def show_html_preview(self):
-        # Create preview dialog
         self.preview_dialog = QDialog(self)
         self.preview_dialog.setWindowTitle("Podgląd HTML")
-        self.preview_dialog.resize(800, 600)
+        self.preview_dialog.resize(1920, 1080)
 
         layout = QVBoxLayout()
 
-        # Create web view for preview
         try:
             from PyQt6.QtWebEngineWidgets import QWebEngineView
             self.web_view = QWebEngineView()
             html_content = self.html_edit.toPlainText()
+
+            style = """
+            <style>
+            .longdescription__template__col.--text,
+                .list_item__col.--text,
+                .longdescription__headline,
+                .longdescription__template__headline {
+                  word-break: break-word; 
+                  overflow-wrap: break-word; 
+                  hyphens: auto; 
+                }
+            body {
+              max-width: 1920px;
+              margin: 0 auto; 
+              width: 90%;
+              
+            }
+            .longdescription {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              
+              padding-top: 4.8rem;
+              scroll-margin-top: 11.2rem;
+            }
+            .longdescription__template,
+                .longdescription__template__row.--layout-photo-text {
+                  max-width: 100%; 
+                }
+            @media (min-width: 1024px) {
+              .longdescription {
+                padding-top: 10.2rem;
+                scroll-margin-top: initial;
+              }
+            }
+            .longdescription__template__col img,
+                .longdescription__template__col video {
+                  max-width: 90%;
+                  height: auto;
+                  display: block;
+                }
+                
+            .longdescription.cm {
+              margin-bottom: 0;
+              overflow: initial;
+            }
+            
+            .longdescription > * {
+              width: 100%;
+            }
+            
+            .longdescription > .longdescription__row {
+              order: -2;
+            }
+            
+            .longdescription__headline {
+              font-size: 2.4rem;
+              line-height: 2.4rem;
+              margin-bottom: 3.2rem;
+              text-transform: uppercase;
+              font-weight: 700;
+            }
+            
+            .longdescription__return_info {
+              display: flex;
+              margin-top: 3.2rem;
+            }
+            
+            .longdescription__return_msg {
+              border: 1px solid #ccc;
+              border-radius: 8px;
+              padding: 1.5rem;
+            }
+            
+            .longdescription__template {
+              display: grid;
+              gap: 1.6rem;
+            }
+            
+            @media (min-width: 1024px) {
+              .longdescription__template {
+                gap: 10.2rem;
+                max-width: 1920px;
+              }
+            }
+            
+            .longdescription__template__row.--layout-photo-text {
+              display: grid;
+              gap: 1.6rem;
+            }
+            
+            @media (min-width: 1024px) {
+              .longdescription__template__row.--layout-photo-text {
+                row-gap: 10.2rem;
+              }
+            
+              .longdescription__template__row.--layout-photo-text .row {
+                display: flex;
+                align-items: center;
+                gap: 1.6rem;
+                margin: 0;
+                flex-wrap: wrap;
+              }
+            
+              
+            
+              .longdescription__template__row.--layout-photo-text .row > * {
+                flex: 0 0 calc(50% - 0.8rem);
+                max-width: calc(50% - 0.8rem);
+                 box-sizing: border-box;
+              }
+            }
+            
+            .longdescription__template__col {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+            
+            .longdescription__template__col img[alt] {
+              background-color: #ccc;
+              padding: 5.6rem;
+              padding-left: 15.6rem;
+              padding-right: 15.6rem;
+              border: 3px dotted #444;
+              color: #white;
+            }
+            
+            .longdescription__template__col.--text {
+              flex-direction: column;
+              align-items: flex-start;
+              justify-content: center;
+              padding: 4.8rem;
+              gap: 1.6rem;
+              font-size: 1.6rem;
+              line-height: 1.8;
+              text-wrap: wrap;
+            }
+            
+            .longdescription__template__col.--text .col__headline {
+              font-size: 1.8rem;
+              font-weight: 600;
+              line-height: 1.3;
+              text-transform: uppercase;
+            }
+            
+            .longdescription__template__col.--text p {
+              margin: 0;
+              line-height: 1.8;
+            }
+            
+            .longdescription__template__headline {
+              font-size: 2.4rem;
+              font-weight: 600;
+              text-align: center;
+              text-transform: uppercase;
+            }
+            
+            .longdescription__template__list {
+              list-style: none;
+              padding-left: 0 !important;
+            }
+            
+            .longdescription__template__list_item {
+              border-top: 1px solid #ccc;
+              margin-top: 3.2rem;
+              padding-top: 3.2rem;
+            }
+            
+            .list_item__row {
+              display: grid;
+              gap: 1.6rem;
+              grid-template-columns: minmax(0, 1fr);
+            }
+            
+            @media (min-width: 1024px) {
+              .list_item__row {
+                gap: 7.2rem;
+                grid-template-columns: auto minmax(0, 1fr);
+              }
+            }
+            
+            .list_item__col.--text {
+              display: grid;
+              gap: 1.6rem;
+            }
+            
+            .list_item__headline {
+              font-size: 1.8rem;
+              font-weight: 600;
+              line-height: 1.8rem;
+              text-transform: uppercase;
+            }
+            
+            .list_item__list {
+              list-style: none;
+              padding: 0;
+            }
+            
+            .list_item__list li {
+              display: flex;
+              align-items: flex-start;
+              justify-content: flex-start;
+            }
+            
+            .list_item__list li::before {
+              content: '•';
+              flex: 0 0 3.2rem;
+              text-align: center;
+            }
+
+            </style>
+            """
+            if "</head>" in html_content:
+                html_content = html_content.replace("</head>", style + "</head>")
+            else:
+                html_content = style + html_content
+
             self.web_view.setHtml(html_content)
             layout.addWidget(self.web_view)
         except ImportError:
-            # Fallback if WebEngine is not available
             error_label = QLabel("Podgląd wymaga zainstalowanego PyQt6-WebEngine")
             layout.addWidget(error_label)
 
-        # Close button
         close_button = QPushButton("Zamknij")
 
         close_button.clicked.connect(self.preview_dialog.close)
@@ -934,18 +1148,18 @@ class HtmlEditor(QMainWindow):
             "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
             "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
         )
-        thumbnail_url_edit = QLineEdit()
-        thumbnail_url_edit.setPlaceholderText("Wpisz URL miniaturki (maxresdefault)")
-        thumbnail_url_edit.setStyleSheet(
-            "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
-            "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
-        )
-        alt_text_edit = QLineEdit()
-        alt_text_edit.setPlaceholderText("Wpisz tekst zastępczy")
-        alt_text_edit.setStyleSheet(
-            "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
-            "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
-        )
+        # thumbnail_url_edit = QLineEdit()
+        # thumbnail_url_edit.setPlaceholderText("Wpisz URL miniaturki (maxresdefault)")
+        # thumbnail_url_edit.setStyleSheet(
+        #     "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
+        #     "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
+        # )
+        # alt_text_edit = QLineEdit()
+        # alt_text_edit.setPlaceholderText("Wpisz tekst zastępczy")
+        # alt_text_edit.setStyleSheet(
+        #     "background-color: #e9ecef; color: black; padding: 5px; border-radius: 5px;" if self.light_mode else
+        #     "background-color: #222; color: white; padding: 5px; border-radius: 5px;"
+        # )
 
         delete_button = QPushButton("Usuń Sekcję")
         delete_button.setStyleSheet(
@@ -970,8 +1184,8 @@ class HtmlEditor(QMainWindow):
         move_down_button.clicked.connect(lambda: self.move_section(youtube_layout, 1))  # Move down
 
         youtube_layout.addWidget(video_id_edit)
-        youtube_layout.addWidget(thumbnail_url_edit)
-        youtube_layout.addWidget(alt_text_edit)
+        # youtube_layout.addWidget(thumbnail_url_edit)
+        # youtube_layout.addWidget(alt_text_edit)
 
         buttons_layout = QVBoxLayout()
         buttons_layout.addWidget(move_up_button)
@@ -981,23 +1195,26 @@ class HtmlEditor(QMainWindow):
         buttons_widget = QWidget()
         buttons_widget.setLayout(buttons_layout)
         youtube_layout.addWidget(buttons_widget)
-
-        video_id_edit.textChanged.connect(lambda: self.process_youtube_url(video_id_edit))
-        thumbnail_url_edit.textChanged.connect(self.update_html)
-        alt_text_edit.textChanged.connect(self.update_html)
+        thumbnail_url = ""
+        alt_text = "Film Youtube"
+        video_id_edit.textChanged.connect(lambda: self.process_youtube_url(video_id_edit, thumbnail_url))
+        # thumbnail_url_edit.textChanged.connect(self.update_html)
+        # alt_text_edit.textChanged.connect(self.update_html)
 
         self.scroll_layout.addLayout(youtube_layout)
-        self.sections.append((youtube_layout, "youtube", video_id_edit, thumbnail_url_edit, alt_text_edit))
+        self.sections.append((youtube_layout, "youtube", video_id_edit, thumbnail_url, alt_text))
 
         self.update_html()
 
-    def process_youtube_url(self, video_id_edit):
+    def process_youtube_url(self, video_id_edit, thumbnail_url):
         full_url = video_id_edit.text()
         import re
         match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", full_url)
         video_id = match.group(1) if match else full_url.strip()
-        video_id_edit.setText(video_id)
+
+        thumbnail_url = f'https://www.youtube.com/embed/{video_id}?vq=hd1080'
         self.update_html()
+
 
     def add_list(self, list_type):
         list_layout = QHBoxLayout()
@@ -1302,17 +1519,17 @@ class HtmlEditor(QMainWindow):
                             in_paragraph = False
 
                         while current_depth > arrows:
-                            html_lines.append("</ol>")
+                            html_lines.append("</ul>")
                             current_depth -= 1
 
                         while current_depth < arrows:
-                            html_lines.append("<ol>")
+                            html_lines.append("<ul>")
                             current_depth += 1
 
                         html_lines.append(f"<li>{content}</li>")
                     else:
                         if current_depth > 0:
-                            html_lines.append("</ol>" * current_depth)
+                            html_lines.append("</ul>" * current_depth)
                             current_depth = 0
                         paragraph_lines.append(line)
                         in_paragraph = True
@@ -1320,7 +1537,7 @@ class HtmlEditor(QMainWindow):
                 if paragraph_lines:
                     html_lines.append(f"<p>{'<br>'.join(paragraph_lines)}</p>")
                 elif current_depth > 0:
-                    html_lines.append("</ol>" * current_depth)
+                    html_lines.append("</ul>" * current_depth)
 
                 text_html = f"""<div class="longdescription__template__col --text">
                 {''.join(html_lines)}
@@ -1366,13 +1583,13 @@ class HtmlEditor(QMainWindow):
                 """
 
             elif section[1] == "youtube":
-                video_id_edit, thumbnail_url_edit, alt_text_edit = section[2], section[3], section[4]
+                video_id_edit, thumbnail_url, alt_text = section[2], section[3], section[4]
 
                 video_id = video_id_edit.text().strip()
-                thumbnail_url = thumbnail_url_edit.text().strip()
-                alt_text = alt_text_edit.text().strip()
+                # thumbnail_url = thumbnail_url_edit.text().strip()
+                # alt_text = alt_text_edit.text().strip()
 
-                if video_id and thumbnail_url and alt_text:
+                if video_id :
                     youtube_html = f"""
                     <div class="longdescription__template__row --video">
                         <div class="youtube-player">
@@ -1549,6 +1766,10 @@ class HtmlEditor(QMainWindow):
                 original_name = os.path.basename(source_path)
                 random_digits = random.randint(1000, 9999)
                 new_file_name = f"{os.path.splitext(original_name)[0]}_{random_digits}.webp"
+                custom_folder = os.path.join("data", "include", "cms", "img-longdescription")
+                os.makedirs(custom_folder, exist_ok=True)
+                destination_path = os.path.join(custom_folder, new_file_name)
+                shutil.copy(source_path, destination_path)
                 destination_path = os.path.join(self.target_directory, new_file_name)
                 shutil.copy(source_path, destination_path)
                 self.image_path = destination_path
